@@ -55,7 +55,7 @@ Copy a column of data from Excel, a CSV, or any text source and paste it into th
 The **Formatted List** (Panel B) will instantly display your data as a clean, semicolon-separated list. Click the `Copy List` button to paste it directly into your ERP system or other tools.
 
 ```
-1016507;1016178;1016179;1016180
+101;102;103;104
 ```
 
 #### Step 3: Build and Copy Your SQL Query
