@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataLinker Pro v2 | Persistent Excel to SQL Bridge</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+/* --- Core Styles --- */
+body { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #e5e7eb; }
+    ::-webkit-scrollbar-thumb { background: #9ca3af; border: 2px solid #e5e7eb; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+    /* Animation */
+    @keyframes flashGreen {
+        0% { background-color: #86efac; }
+        100% { background-color: white; }
+    }
+    .flash-success { animation: flashGreen 0.6s ease-out; }
+
+    /* --- Editor Styling --- */
+    .font-code { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+
+    /* Excel-like Grid Input */
+    .excel-grid-bg {
+        background-color: white;
+        background-image: linear-gradient(transparent 23px, #e5e7eb 24px);
+        background-size: 100% 24px; /* Matches line-height */
+        line-height: 24px;
+        background-attachment: local;
+    }
+    .desc-box {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        color: #0c4a6e;
+        font-style: italic;
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+
+    /* Syntax Highlighting Containers */
+    .syntax-box {
+        background-color: #ffffff;
+        color: #1f2937;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* SQL Colors (SQL Developer Style) */
+    .sql-keyword { color: #0000FF; font-weight: bold; } /* Standard Blue */
+    .sql-string { color: #a31515; } /* Reddish string */
+    .sql-punct { color: #555; }
+    .sql-table { color: #008000; font-weight: bold; }
+
+    /* ERP Colors */
+    .erp-value { color: #008000; } /* Green */
+    .erp-sep { color: #000000; font-weight: bold; }
+
+    /* Black Grid Inputs */
+    .grid-input {
+        background-color: #1f2937; /* Dark */
+        color: #f3f4f6;
+        border: 2px solid #374151;
+        font-family: 'Consolas', monospace;
+    }
+    .grid-input:focus {
+        border-color: #0078D4;
+        outline: none;
+        background-color: #111827;
+    }
+
+</style>
+
+
+
+</head>
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden text-sm">
+
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-300 px-4 py-2 flex justify-between items-center shrink-0 z-20 shadow-sm h-14">
+    <div class="flex items-center gap-3">
+        <div class="bg-[#0078D4] p-1.5 rounded text-white shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+        </div>
+        <div>
+            <h1 class="text-lg font-bold text-gray-800 tracking-tight leading-tight">DataLinker <span class="text-[#0078D4]">Pro</span></h1>
+            <div class="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Storage Enabled</div>
+        </div>
+    </div>
+
+    <!-- Global Toolbar -->
+    <div class="flex gap-2">
+         <button onclick="clearAllData()" class="flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded transition-colors text-xs font-semibold">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            Clear Everything
+        </button>
+    </div>
+</header>
+
+<div class="flex flex-1 overflow-hidden">
+
+    <!-- Sidebar: Saved Views -->
+    <aside class="w-64 bg-gray-50 border-r border-gray-200 flex flex-col shrink-0">
+        <div class="p-3 border-b border-gray-200 bg-gray-100">
+            <h3 class="font-bold text-gray-700 text-xs uppercase tracking-wide mb-2">Saved Workspaces</h3>
+            <div class="space-y-2">
+                 <select id="saveTypeSelect" class="w-full text-xs border border-gray-300 rounded focus:border-blue-500 outline-none bg-white px-2 py-1">
+                    <option value="view" selected>Save as View</option>
+                    <option value="column">Save as Column</option>
+                </select>
+                <div class="flex gap-1">
+                    <input type="text" id="saveNameInput" placeholder="Workspace name..." class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:border-blue-500 outline-none">
+                    <button onclick="saveCurrentState()" class="bg-[#0078D4] hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-bold shadow-sm transition-colors">Save</button>
+                </div>
+            </div>
+        </div>
+        <div id="savedList" class="flex-1 overflow-y-auto p-2 space-y-1">
+            <!-- Saved items injected here -->
+            <div class="text-center text-gray-400 mt-10 text-xs italic">No saved views</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-4 bg-[#f3f2f1]">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
+
+            <!-- Zone A: Data Source (Input) -->
+            <div class="lg:col-span-4 flex flex-col h-full bg-white rounded shadow-sm border border-gray-300 overflow-hidden">
+                <div class="bg-gray-100 px-3 py-2 border-b border-gray-200 flex justify-between items-center select-none">
+                    <div class="font-bold text-gray-700 text-xs flex items-center gap-2">
+                        <span class="w-5 h-5 rounded bg-gray-700 text-white flex items-center justify-center font-mono text-sm">A</span>
+                        Input Grid
+                    </div>
+                    <div class="flex items-center gap-2">
+                         <select id="delimiterSelect" class="text-[10px] font-mono bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full border border-gray-300 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="newline" selected>Newline / Mixed</option>
+                            <option value="comma">Comma</option>
+                            <option value="space">Space</option>
+                            <option value="semicolon">Semicolon</option>
+                        </select>
+                        <span id="countBadge" class="text-[10px] font-mono bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full border border-gray-300">0 rows</span>
+                    </div>
+                </div>
+                <div class="p-2 border-b border-gray-200">
+                    <p class="desc-box rounded">Paste your raw data here. It can be a list from Excel, a CSV, or just text separated by spaces, commas, or newlines.</p>
+                </div>
+                <div class="flex-1 relative">
+                    <textarea
+                        id="inputArea"
+                        placeholder="1001, 1002, 1003"
+                        class="w-full h-full p-4 border-none resize-none focus:ring-0 outline-none font-code text-sm text-gray-800 excel-grid-bg"
+                        spellcheck="false"></textarea>
+                </div>
+            </div>
+
+            <!-- Right Column: Outputs -->
+            <div class="lg:col-span-8 flex flex-col gap-4 h-full">
+
+                <!-- Zone B: ERP Connector -->
+                <div class="flex-1 flex flex-col bg-white rounded shadow-sm border border-gray-300 overflow-hidden min-h-[120px]">
+                    <div class="bg-gray-100 px-3 py-2 border-b border-gray-200 flex justify-between items-center select-none">
+                        <div class="font-bold text-gray-700 text-xs flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-green-700 text-white flex items-center justify-center font-mono text-sm">B</span>
+                            Formatted List
+                        </div>
+                        <button onclick="copyContent('erpOutput', 'erpBtn')" id="erpBtn" class="bg-white hover:bg-green-50 text-green-700 border border-green-200 text-xs px-3 py-1 rounded shadow-sm font-bold transition-all flex items-center gap-1 active:scale-95">
+                            Copy List
+                        </button>
+                    </div>
+                    <div class="p-2 border-b border-gray-200">
+                        <p class="desc-box rounded">A clean, semicolon-separated list, perfect for pasting into ERP systems or other tools.</p>
+                    </div>
+                    <!-- Content Editable Div for Syntax Highlighting -->
+                    <div id="erpOutput" class="syntax-box w-full h-full p-4 font-code text-sm"></div>
+                </div>
+
+                <!-- Zone C: SQL Architect -->
+                <div class="flex-[2] flex flex-col bg-white rounded shadow-sm border border-gray-300 overflow-hidden">
+
+                    <!-- Toolbar -->
+                    <div class="bg-gray-100 px-3 py-2 border-b border-gray-200 flex flex-wrap gap-3 justify-between items-center select-none">
+                        <div class="font-bold text-gray-700 text-xs flex items-center gap-2">
+                            <span class="w-5 h-5 rounded bg-[#0078D4] text-white flex items-center justify-center font-mono text-sm">C</span>
+                            SQL Query Builder
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <!-- Data Type Toggle -->
+                            <div class="flex bg-gray-300 rounded p-[2px]">
+                                <button onclick="setQueryMode('list')" id="btnList" class="px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900">LIST</button>
+                                <button onclick="setQueryMode('count')" id="btnCount" class="px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900">COUNT</button>
+                            </div>
+                             <div class="flex bg-gray-300 rounded p-[2px]">
+                                <button onclick="setType('numeric')" id="btnNumeric" class="px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900">123</button>
+                                <button onclick="setType('string')" id="btnString" class="px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900">ABC</button>
+                            </div>
+
+                            <button onclick="copyContent('sqlOutput', 'sqlBtn')" id="sqlBtn" class="bg-[#0078D4] hover:bg-blue-600 text-white border border-blue-600 text-xs px-3 py-1 rounded shadow-sm font-bold transition-all flex items-center gap-1 active:scale-95">
+                                Copy SQL
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Configuration Grid -->
+                    <div class="grid grid-cols-2 gap-px bg-gray-300 border-b border-gray-300">
+                        <div class="bg-white p-2 flex items-center gap-2">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase w-16 text-right">Table</label>
+                            <select id="tableName" class="grid-input w-full text-xs rounded px-2 py-1.5 shadow-inner"></select>
+                        </div>
+                        <div class="bg-white p-2 flex items-center gap-2">
+                            <label class="text-[10px] font-bold text-gray-500 uppercase w-16 text-right">Column</label>
+                            <select id="columnName" class="grid-input w-full text-xs rounded px-2 py-1.5 shadow-inner"></select>
+                        </div>
+                    </div>
+
+                    <div class="p-2 border-b border-gray-300">
+                        <p class="desc-box rounded">Generates a ready-to-use SQL query for your data. Toggle between `IN (...)` and `COUNT(*)`.</p>
+                    </div>
+                    <!-- SQL Output Div -->
+                    <div class="relative flex-1 overflow-hidden bg-white">
+                        <div id="sqlOutput" class="syntax-box w-full h-full p-4 font-code text-sm"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Application Logic -->
+<script>
+    // --- State Management ---
+    const APP_STORAGE_KEY = 'datalinker_pro_v2_data';
+    let savedViews = JSON.parse(localStorage.getItem(APP_STORAGE_KEY)) || {};
+    let isStringMode = true;
+    let isCountMode = false;
+
+    // --- DOM Elements ---
+    const els = {
+        input: document.getElementById('inputArea'),
+        erp: document.getElementById('erpOutput'),
+        sql: document.getElementById('sqlOutput'),
+        count: document.getElementById('countBadge'),
+        table: document.getElementById('tableName'),
+        col: document.getElementById('columnName'),
+        saveInput: document.getElementById('saveNameInput'),
+        savedList: document.getElementById('savedList'),
+        saveType: document.getElementById('saveTypeSelect'),
+        delimiter: document.getElementById('delimiterSelect'),
+        btnNum: document.getElementById('btnNumeric'), // Corrected typo from original code
+        btnStr: document.getElementById('btnString'),
+        btnList: document.getElementById('btnList'),
+        btnCount: document.getElementById('btnCount')
+    };
+
+    // --- Initialization ---
+    window.addEventListener('load', () => {
+        renderSqlDropdowns();
+        renderSavedList();
+        processData(); // Run once on load
+    });
+
+    // --- Event Listeners ---
+    els.input.addEventListener('input', processData);
+    els.table.addEventListener('input', processData);
+    els.col.addEventListener('input', processData);
+    els.delimiter.addEventListener('change', processData);
+
+    // --- Logic Core ---
+
+    function processData() {
+        const rawText = els.input.value;
+        const delimiter = els.delimiter.value;
+
+        // 1. Parsing: Handle mixed delimiters (Excel tabs, newlines, commas)
+        let regex;
+        switch (delimiter) {
+            case 'comma':     regex = /,/g; break;
+            case 'space':     regex = /\s+/g; break;
+            case 'semicolon': regex = /;/g; break;
+            case 'newline':
+            default:          regex = /[\s,]+/; break; // Default handles newlines, spaces, and commas
+        }
+
+        let items = rawText.split(regex);
+        items = items.map(i => i.trim().replace(/^['"]|['"]$/g, '')).filter(i => i !== "");
+
+        // UI Update
+        els.count.textContent = `${items.length} rows`;
+
+        if (items.length === 0) {
+            els.erp.innerHTML = '<span class="text-gray-400 italic">// Waiting for input...</span>';
+            els.sql.innerHTML = '<span class="text-gray-400 italic">-- Waiting for input...</span>';
+            return;
+        }
+
+        // 2. Generate ERP View (Green Text)
+        const erpHtml = items.map(i => `<span class="erp-value">${i}</span>`).join('<span class="erp-sep">;</span>');
+        els.erp.innerHTML = erpHtml;
+
+        // 3. Generate SQL View (Blue Keywords)
+        const table = els.table.value.trim() || "TABLE_NAME";
+        const col = els.col.value.trim() || "COLUMN_NAME";
+
+        let sqlValues;
+        if (isStringMode) {
+            // String mode: red color, wrapped in quotes
+            sqlValues = items.map(i => `<span class="sql-string">'${i.replace(/'/g, "''")}'</span>`).join('<span class="sql-punct">, </span>');
+        } else {
+            // Numeric mode: plain dark color
+            sqlValues = items.join('<span class="sql-punct">, </span>');
+        }
+
+        let sqlHtml;
+        if (isCountMode) {
+            sqlHtml = `
+<span class="sql-keyword">SELECT</span> COUNT(*) <span class="sql-keyword">FROM</span> <span class="sql-table">${table}</span>
+<span class="sql-keyword">WHERE</span> ${col} <span class="sql-keyword">IN</span> <span class="sql-punct">(</span>
+${sqlValues}
+<span class="sql-punct">);</span>`;
+        } else {
+            sqlHtml = `
+<span class="sql-keyword">SELECT</span> * <span class="sql-keyword">FROM</span> <span class="sql-table">${table}</span>
+<span class="sql-keyword">WHERE</span> ${col} <span class="sql-keyword">IN</span> <span class="sql-punct">(</span>
+${sqlValues}
+<span class="sql-punct">);</span>`;
+        }
+
+
+        els.sql.innerHTML = sqlHtml;
+    }
+
+    // --- Mode Toggle ---
+    function setType(type) {
+        isStringMode = (type === 'string');
+        if (isStringMode) {
+            els.btnStr.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900";
+            els.btnNum.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900";
+        } else {
+            els.btnNum.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900";
+            els.btnStr.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900";
+        }
+        processData();
+    }
+
+    function setQueryMode(mode) {
+        isCountMode = (mode === 'count');
+        if (isCountMode) {
+            els.btnCount.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900";
+            els.btnList.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900";
+        } else {
+            els.btnList.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all shadow-sm bg-white text-gray-900";
+            els.btnCount.className = "px-3 py-0.5 rounded-sm text-xs font-bold transition-all text-gray-500 hover:text-gray-900";
+        }
+        processData();
+    }
+
+
+    // --- Storage Logic ---
+
+    function saveCurrentState() {
+        const name = els.saveInput.value.trim();
+        if (!name) return alert("Please enter a name for this view.");
+        const saveType = els.saveType.value;
+
+        const state = {
+            input: els.input.value,
+            table: els.table.value,
+            col: els.col.value,
+            saveType: saveType,
+            delimiter: els.delimiter.value,
+            isString: isStringMode,
+            isCount: isCountMode,
+            timestamp: new Date().toLocaleString()
+        };
+
+        savedViews[name] = state;
+        localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(savedViews));
+        els.saveInput.value = '';
+        renderSqlDropdowns();
+        renderSavedList();
+    }
+
+    function loadState(name) {
+        const state = savedViews[name];
+        if (!state) return;
+
+        els.input.value = state.input;
+        els.delimiter.value = state.delimiter || 'newline';
+
+        // If the loaded item is a 'view' or 'column', select it in the dropdown.
+        if (state.saveType === 'view') {
+            els.table.value = name; // Only update the table dropdown
+        } else if (state.saveType === 'column') {
+            els.col.value = name; // Only update the column dropdown
+        } else { // Fallback for older saved states without a saveType
+            els.table.value = state.table || '';
+            els.col.value = state.col || '';
+        }
+
+        setType(state.isString ? 'string' : 'numeric');
+        setQueryMode(state.isCount ? 'count' : 'list');
+        processData(); // Explicitly refresh outputs
+
+        // Flash effect on load
+        document.body.classList.add('flash-success');
+        setTimeout(() => document.body.classList.remove('flash-success'), 500);
+    }
+
+    function deleteState(name) {
+        if(confirm(`Delete view "${name}"?`)) {
+            delete savedViews[name];
+            localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(savedViews));
+            renderSqlDropdowns();
+            renderSavedList();
+        }
+    }
+
+    function clearAllData() {
+        if(confirm("Are you sure? This will delete ALL saved views and clear the current editor.")) {
+            localStorage.removeItem(APP_STORAGE_KEY);
+            savedViews = {};
+            els.input.value = '';
+            els.table.value = 'ORDERS_TABLE';
+            renderSqlDropdowns();
+            els.col.value = 'ORDER_ID';
+            renderSavedList();
+            processData();
+        }
+    }
+
+    function renderSavedList() {
+        els.savedList.innerHTML = '';
+        const names = Object.keys(savedViews);
+
+        if (names.length === 0) { // Corrected condition
+            els.savedList.innerHTML = '<div class="text-center text-gray-400 mt-4 text-xs italic">No saved views</div>';
+            return;
+        }
+
+        names.forEach(name => {
+            const item = document.createElement('div');
+            item.className = "group flex items-center justify-between p-2 bg-white border border-gray-200 rounded hover:border-blue-400 shadow-sm transition-all";
+            const state = savedViews[name];
+            const saveType = state.saveType || 'view'; // Default to 'view' for older items
+            const typeColorClass = saveType === 'view' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
+            item.innerHTML = `
+                <div class="flex-1 cursor-pointer truncate" onclick="loadState('${name}')">
+                    <div class="text-xs font-bold text-gray-700 group-hover:text-blue-600"><span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded mr-2 ${typeColorClass}">${saveType}</span>${name}</div>
+                    <div class="text-[9px] text-gray-400">${new Date(savedViews[name].timestamp).toLocaleString() || 'Saved'}</div>
+                </div>
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="p-1.5 rounded bg-yellow-300 hover:bg-yellow-400"></button>
+                    <button class="p-1.5 rounded bg-blue-300 hover:bg-blue-400"></button>
+                    <button onclick="deleteState('${name}')" class="p-1 text-gray-400 hover:text-red-500">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            `;
+            els.savedList.appendChild(item);
+        });
+    }
+
+    function renderSqlDropdowns() {
+        const currentTable = els.table.value;
+        const currentCol = els.col.value;
+
+        els.table.innerHTML = '<option value="">-- Select View --</option>';
+        els.col.innerHTML = '<option value="">-- Select Column --</option>';
+
+        const names = Object.keys(savedViews);
+        let viewsFound = false;
+        let colsFound = false;
+
+        names.forEach(name => {
+            const state = savedViews[name];
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+
+            if (state.saveType === 'view') {
+                els.table.appendChild(option);
+                viewsFound = true;
+            } else if (state.saveType === 'column') {
+                els.col.appendChild(option);
+                colsFound = true;
+            }
+        });
+
+        if (viewsFound) els.table.value = currentTable;
+        if (colsFound) els.col.value = currentCol;
+    }
+    // --- Utilities ---
+
+    function copyContent(elementId, btnId) {
+        const el = document.getElementById(elementId);
+        const range = document.createRange();
+        range.selectNode(el);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+
+        try {
+            document.execCommand('copy');
+
+            // Button Feedback
+            const btn = document.getElementById(btnId);
+            const originalHtml = btn.innerHTML;
+            const originalClasses = btn.className;
+
+            btn.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!`;
+            btn.className = "bg-green-600 text-white text-xs px-3 py-1 rounded shadow-sm font-bold transition-all flex items-center gap-1";
+
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.className = originalClasses;
+            }, 1500);
+
+        } catch (err) {
+            alert('Copy failed.');
+        }
+        window.getSelection().removeAllRanges();
+    }
+</script>
+
+
+</body>
+</html>
