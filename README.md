@@ -6,9 +6,8 @@ DataLinker Pro is a lightweight, client-side productivity tool designed for deve
 
  
 ![DataLinker Pro Screenshot](DataLinker.png)
-Access Link : https://onkarpawar1.github.io/DataLinker-Pro/ 
 ---
-
+Access Link : https://onkarpawar1.github.io/DataLinker-Pro
 ## The Challenge
 
 In many data-driven roles, a common task involves taking a list of identifiers (like customer IDs, order numbers, or SKUs) from a spreadsheet and using it in another system. This often requires tedious reformatting:
